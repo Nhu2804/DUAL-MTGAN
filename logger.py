@@ -55,6 +55,12 @@ class Logger:
         }
 
         self.device = generator.device
+        # THÊM: lưu riêng loss cho diagnosis và procedure (dual-stream)
+        self.train_d_real_diag = []
+        self.train_d_fake_diag = []
+        self.train_d_real_proc = []
+        self.train_d_fake_proc = []
+
 
         self.logfile = open(os.path.join(plot_path, 'output.log'), 'w', encoding='utf-8')
 
@@ -74,10 +80,19 @@ class Logger:
         self.plots[key][loss_type]['data'].append(loss)
 
     # GIỮ NGUYÊN HÀM NHƯ GỐC
-    def add_train_point(self, d_loss, g_loss, w_distance):
+    def add_train_point(self, d_loss, g_loss, w_distance,
+                        d_real_diag=None, d_fake_diag=None,
+                        d_real_proc=None, d_fake_proc=None):
         self.append_point('train', 'd_loss', d_loss)
         self.append_point('train', 'g_loss', g_loss)
         self.append_point('train', 'w_distance', w_distance)
+        # Nếu có giá trị riêng cho diagnosis / procedure → lưu thêm
+        if d_real_diag is not None:
+            self.train_d_real_diag.append(d_real_diag)
+            self.train_d_fake_diag.append(d_fake_diag)
+            self.train_d_real_proc.append(d_real_proc)
+            self.train_d_fake_proc.append(d_fake_proc)
+
 
     # GIỮ NGUYÊN HÀM NHƯ GỐC
     def add_test_point(self, test_d_loss):
@@ -116,6 +131,25 @@ class Logger:
         step = train_points_num // gen_points_num
         x = np.arange(1, gen_points_num + 1) * step
         self.plot_dict('generate', x)
+
+    def plot_dual_stream_losses(self):
+        """Vẽ biểu đồ riêng cho diagnosis & procedure."""
+        if len(self.train_d_real_diag) == 0:
+            return  # chưa có dữ liệu
+        
+        x = np.arange(1, len(self.train_d_real_diag) + 1)
+        plt.figure(figsize=(10, 5))
+        plt.plot(x, self.train_d_real_diag, label='D_real_diag')
+        plt.plot(x, self.train_d_fake_diag, label='D_fake_diag')
+        plt.plot(x, self.train_d_real_proc, label='D_real_proc')
+        plt.plot(x, self.train_d_fake_proc, label='D_fake_proc')
+        plt.legend()
+        plt.xlabel("Iteration")
+        plt.ylabel("Discriminator Scores")
+        plt.title("Diagnosis vs Procedure Discriminator Outputs")
+        plt.savefig(os.path.join(self.plot_path, 'Dual_Discriminator_Scores.png'))
+        plt.close()
+
 
     def stat_generation(self):
         fake_diagnoses, fake_procedures, fake_lens = generate_ehr(

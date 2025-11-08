@@ -18,23 +18,54 @@ class GeneratorTrainer:
 
     def _step(self, target_diagnoses, target_procedures, lens):
         noise = self.generator.get_noise(len(lens))
-        
-        # Forward qua dual-stream generator
-        (diagnosis_samples, procedure_samples), (diagnosis_hiddens, procedure_hiddens) = self.generator(
-            target_diagnoses, target_procedures, lens, noise
+
+        diag_num = self.generator.diagnosis_num
+        proc_num = self.generator.procedure_num
+        hidden_dim = self.generator.hidden_dim
+
+        # =====================================================
+        # 🧩 Diagnosis stream
+        # =====================================================
+        (diagnosis_samples, _), (diagnosis_hiddens, _) = self.generator(
+            target_diagnoses, target_procedures * 0, lens, noise
         )
-        
-        # Forward qua dual-stream critic
-        output, diagnosis_output, procedure_output = self.critic(
-            diagnosis_samples, procedure_samples, diagnosis_hiddens, procedure_hiddens, lens
+
+        # 🧠 zeros_proc phải đúng số chiều của procedure stream
+        zeros_proc = torch.zeros(diagnosis_samples.size(0), diagnosis_samples.size(1), proc_num, device=self.device)
+        zeros_proc_h = torch.zeros(diagnosis_hiddens.size(0), diagnosis_hiddens.size(1), hidden_dim, device=self.device)
+
+        output_diag, diagnosis_output, _ = self.critic(
+            diagnosis_samples, zeros_proc, diagnosis_hiddens, zeros_proc_h, lens
         )
-        
-        loss = -output.mean()
+        g_loss_diag = -output_diag.mean()
+
+        # =====================================================
+        # 🧩 Procedure stream
+        # =====================================================
+        (_, procedure_samples), (_, procedure_hiddens) = self.generator(
+            target_diagnoses * 0, target_procedures, lens, noise
+        )
+
+        zeros_diag = torch.zeros(procedure_samples.size(0), procedure_samples.size(1), diag_num, device=self.device)
+        zeros_diag_h = torch.zeros(procedure_hiddens.size(0), procedure_hiddens.size(1), hidden_dim, device=self.device)
+
+        output_proc, _, procedure_output = self.critic(
+            zeros_diag, procedure_samples, zeros_diag_h, procedure_hiddens, lens
+        )
+        g_loss_proc = -output_proc.mean()
+
+        # =====================================================
+        # 🧠 Combine hai nhánh (trung bình)
+        # =====================================================
+        g_loss = (g_loss_diag + g_loss_proc) / 2
 
         self.optimizer.zero_grad()
-        loss.backward()
+        g_loss.backward()
         self.optimizer.step()
-        return loss, diagnosis_output, procedure_output
+
+        return g_loss, diagnosis_output, procedure_output
+
+
 
     def step(self, target_diagnoses, target_procedures, lens):
         self.generator.train()

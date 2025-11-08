@@ -74,7 +74,7 @@ class GANTrainer:
                 target_diagnoses, target_procedures, real_lens
             )
 
-            # 5️⃣ Log như gốc
+            # 5️⃣ Log chi tiết hơn (dual-stream)
             self.logger.add_train_point(d_loss, g_loss, w_distance)
 
             if i % self.test_freq == 0:
@@ -82,17 +82,28 @@ class GANTrainer:
                     self.test_loader, self.device
                 )
                 self.logger.add_test_point(test_d_loss)
-                line = '{} / {} iterations: D_Loss -- {:.6f} -- G_Loss -- {:.6f} -- W_dist -- {:.6f} -- Test_D_Loss -- {:.6f}' \
-                    .format(i, self.iters, d_loss, g_loss, w_distance, test_d_loss)
-                print('\r' + line)
+
+                line = (
+                    f"{i} / {self.iters} iterations:\n"
+                    f" D_Loss -- {d_loss:.6f} | G_Loss -- {g_loss:.6f} | W_dist -- {w_distance:.6f} | Test_D_Loss -- {test_d_loss:.6f}\n"
+                    f"   Diag(D_real={d_real_diag:.4f}, D_fake={d_fake_diag:.4f}) | "
+                    f"Proc(D_real={d_real_proc:.4f}, D_fake={d_fake_proc:.4f})"
+                )
+                print("\r" + line)
                 self.logger.add_log(line)
                 self.logger.plot_train()
                 self.logger.plot_test()
                 self.logger.stat_generation()
+                self.logger.plot_dual_stream_losses()
             else:
-                line = '{} / {} iterations: D_Loss -- {:.6f} -- G_Loss -- {:.6f} -- W_dist -- {:.6f}' \
-                    .format(i, self.iters, d_loss, g_loss, w_distance)
-                print('\r' + line, end='')
+                line = (
+                    f"{i} / {self.iters} iterations: "
+                    f"D_Loss -- {d_loss:.6f} | G_Loss -- {g_loss:.6f} | W_dist -- {w_distance:.6f} "
+                    f"| Diag(D_real={d_real_diag:.4f}, D_fake={d_fake_diag:.4f}) "
+                    f"| Proc(D_real={d_real_proc:.4f}, D_fake={d_fake_proc:.4f})"
+                )
+                print("\r" + line, end='')
+
 
             if i % self.save_freq == 0:
                 self.generator.save(self.params_path, f'generator.{i}.pt')

@@ -16,29 +16,50 @@ class CriticTrainer:
         self.loss_fn = WGANGPLoss(critic, lambda_=lambda_)
 
     def _step(self, real_diagnoses, real_procedures, real_lens, target_diagnoses, target_procedures):
-        # Tính real hidden states từ base GRU
+        # 🧠 Tính hidden states thật
         real_diag_hiddens, real_proc_hiddens = self.base_gru.calculate_hidden(
             real_diagnoses, real_procedures, real_lens
         )
-        
-        # Generate fake data từ generator
+
+        # 🧩 Sinh dữ liệu giả
         (fake_diagnoses, fake_procedures), (fake_diag_hiddens, fake_proc_hiddens) = self.generator.sample(
             target_diagnoses, target_procedures, real_lens, return_hiddens=True
         )
-        
-        # Tính loss với dual-stream data
-        loss, wasserstein_distance, d_real_diag, d_real_proc, d_fake_diag, d_fake_proc = self.loss_fn(
-            real_diagnoses, real_procedures, real_diag_hiddens, real_proc_hiddens,
-            fake_diagnoses, fake_procedures, fake_diag_hiddens, fake_proc_hiddens, real_lens
+
+        # ✅ Nếu Critic không chấp nhận None → thay bằng zero tensor cùng shape
+        zeros_diag = torch.zeros_like(real_diagnoses, device=real_diagnoses.device)
+        zeros_proc = torch.zeros_like(real_procedures, device=real_procedures.device)
+
+        # 🧮 Tính loss cho 2 nhánh riêng biệt
+        # --- Diagnosis ---
+        loss_diag, w_dist_diag, d_real_diag, _, d_fake_diag, _ = self.loss_fn(
+            real_diagnoses, zeros_proc, real_diag_hiddens, real_proc_hiddens * 0,
+            fake_diagnoses, zeros_proc, fake_diag_hiddens, fake_proc_hiddens * 0, real_lens
         )
 
+        # --- Procedure ---
+        loss_proc, w_dist_proc, _, d_real_proc, _, d_fake_proc = self.loss_fn(
+            zeros_diag, real_procedures, real_diag_hiddens * 0, real_proc_hiddens,
+            zeros_diag, fake_procedures, fake_diag_hiddens * 0, fake_proc_hiddens, real_lens
+        )
+
+        # 🔹 Tổng hợp lại như MTGAN gốc (lấy trung bình)
+        loss = (loss_diag + loss_proc) / 2
+        w_distance = (w_dist_diag + w_dist_proc) / 2
+
+        # ⚙️ Backward + Optimizer
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
-        
-        return (loss.item(), wasserstein_distance.item(), 
-                d_real_diag.mean().item(), d_real_proc.mean().item(),
-                d_fake_diag.mean().item(), d_fake_proc.mean().item())
+
+        # 📊 Trả ra thống kê
+        return (
+            loss.item(), w_distance.item(),
+            d_real_diag.mean().item(), d_real_proc.mean().item(),
+            d_fake_diag.mean().item(), d_fake_proc.mean().item()
+        )
+
+
 
     def step(self, real_diagnoses, real_procedures, real_lens, target_diagnoses, target_procedures):
         self.critic.train()
