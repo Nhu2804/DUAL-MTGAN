@@ -29,21 +29,28 @@ def code_count(data, lens, icode_map):
 def get_top_k_disease(data, lens, icode_map, code_name_map, top_k=10, file=None):
     count = code_count(data, lens, icode_map)
     print('--------------------------------------------------', file=file)
+    sufix = ['0', '00', '1', '01', '2']  # ✅ giữ như bản gốc
     for cid, num in count[:top_k]:
-        # Nếu không có trong name_map, dùng code gốc
-        if cid in code_name_map:
-            name = code_name_map[cid]
-        else:
-            name = f"CODE_{cid}"  # Hoặc "PROC_{cid}" nếu muốn phân biệt
+        if cid not in code_name_map:
+            for x in sufix:
+                if cid + x in code_name_map:
+                    cid = cid + x
+                    break
+        # in tên từ map, nếu vẫn không có thì fallback
+        name = code_name_map.get(cid, f"CODE_{cid}")
         print(f"{name} ; {num}", file=file)
     print('--------------------------------------------------', file=file)
     return count
 
 
+
 def normalized_distance(dist1, dist2):
-    dist = np.abs(dist1 - dist2) / ((dist1 + dist2) / 2)
-    dist = dist.mean()
-    return dist
+    eps = 1e-12  # tránh chia cho 0
+    denominator = (dist1 + dist2) / 2
+    denominator[denominator == 0] = eps  # nếu dist1 + dist2 = 0 thì thay = eps
+    dist = np.abs(dist1 - dist2) / denominator
+    return dist.mean()
+
 
 
 def get_distribution(data, lens, code_num):
