@@ -93,7 +93,7 @@ class GANTrainer:
                 self.logger.add_log(line)
                 self.logger.plot_train()
                 self.logger.plot_test()
-                self.logger.stat_generation()
+                self.logger.stat_generation(i) 
                 self.logger.plot_dual_stream_losses()
             else:
                 line = (

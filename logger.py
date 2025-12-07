@@ -85,6 +85,8 @@ class Logger:
         self.diag_avg_code_num_hist = []
         self.proc_avg_code_num_hist = []
 
+        self.gen_iterations = []   # <--- THÊM DÒNG NÀY
+
     def append_point(self, key, loss_type, loss):
         self.plots[key][loss_type]['data'].append(loss)
 
@@ -146,21 +148,20 @@ class Logger:
         if len(self.diag_code_type_hist) == 0:
             return
 
-        # Mỗi lần stat_generation được gọi tương ứng 1 điểm
-        x = np.arange(1, len(self.diag_code_type_hist) + 1)
+        x = np.array(self.gen_iterations) 
 
         # 1) Code Type
         # Nếu muốn tách 2 file riêng:
         plt.clf()
         plt.plot(x, self.diag_code_type_hist)
-        plt.xlabel("Generation Step")
+        plt.xlabel("Iteration")
         plt.ylabel("Number of Code Types")
         plt.title("Diagnosis Generated Code Type")
         plt.savefig(os.path.join(self.plot_path, "Diagnosis_Generated_Code_Type.png"))
 
         plt.clf()
         plt.plot(x, self.proc_code_type_hist)
-        plt.xlabel("Generation Step")
+        plt.xlabel("Iteration")
         plt.ylabel("Number of Code Types")
         plt.title("Procedure Generated Code Type")
         plt.savefig(os.path.join(self.plot_path, "Procedure_Generated_Code_Type.png"))
@@ -169,14 +170,15 @@ class Logger:
 
         plt.clf()
         plt.plot(x, self.diag_code_num_hist)
-        plt.xlabel("Generation Step")
+        plt.xlabel("Iteration")
         plt.ylabel("Total Codes Generated")
         plt.title("Diagnosis Generated Code Number")
         plt.savefig(os.path.join(self.plot_path, "Diagnosis_Generated_Code_Number.png"))
 
         plt.clf()
         plt.plot(x, self.proc_code_num_hist)
-        plt.xlabel("Generation Step")
+        plt.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
+        plt.xlabel("Iteration")
         plt.ylabel("Total Codes Generated")
         plt.title("Procedure Generated Code Number")
         plt.savefig(os.path.join(self.plot_path, "Procedure_Generated_Code_Number.png"))
@@ -185,14 +187,14 @@ class Logger:
 
         plt.clf()
         plt.plot(x, self.diag_avg_code_num_hist)
-        plt.xlabel("Generation Step")
+        plt.xlabel("Iteration")
         plt.ylabel("Avg Codes per Visit")
         plt.title("Diagnosis Generated Average Code Number")
         plt.savefig(os.path.join(self.plot_path, "Diagnosis_Generated_Average_Code_Number.png"))
 
         plt.clf()
         plt.plot(x, self.proc_avg_code_num_hist)
-        plt.xlabel("Generation Step")
+        plt.xlabel("Iteration")
         plt.ylabel("Avg Codes per Visit")
         plt.title("Procedure Generated Average Code Number")
         plt.savefig(os.path.join(self.plot_path, "Procedure_Generated_Average_Code_Number.png"))
@@ -217,7 +219,8 @@ class Logger:
         plt.close()
 
 
-    def stat_generation(self):
+    def stat_generation(self, iteration):
+        self.gen_iterations.append(iteration)
         fake_diagnoses, fake_procedures, fake_lens = generate_ehr(
             self.generator, self.save_number, self.len_dist, self.save_batch_size
         )
