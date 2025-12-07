@@ -75,6 +75,15 @@ class Logger:
         self.idiagnosis_map = {v: k for k, v in diagnosis_map.items()}
         self.iprocedure_map = {v: k for k, v in procedure_map.items()}
         self.len_dist = len_dist
+        # LƯU RIÊNG DIAG/PROC CHO GEN PLOT (THEO LẦN stat_generation)
+        self.diag_code_type_hist = []
+        self.proc_code_type_hist = []
+
+        self.diag_code_num_hist = []
+        self.proc_code_num_hist = []
+
+        self.diag_avg_code_num_hist = []
+        self.proc_avg_code_num_hist = []
 
     def append_point(self, key, loss_type, loss):
         self.plots[key][loss_type]['data'].append(loss)
@@ -132,6 +141,63 @@ class Logger:
         x = np.arange(1, gen_points_num + 1) * step
         self.plot_dict('generate', x)
 
+    def plot_gen_dual(self):
+        """Vẽ 6 biểu đồ generated riêng cho Diagnosis / Procedure dạng đường."""
+        if len(self.diag_code_type_hist) == 0:
+            return
+
+        # Mỗi lần stat_generation được gọi tương ứng 1 điểm
+        x = np.arange(1, len(self.diag_code_type_hist) + 1)
+
+        # 1) Code Type
+        # Nếu muốn tách 2 file riêng:
+        plt.clf()
+        plt.plot(x, self.diag_code_type_hist)
+        plt.xlabel("Generation Step")
+        plt.ylabel("Number of Code Types")
+        plt.title("Diagnosis Generated Code Type")
+        plt.savefig(os.path.join(self.plot_path, "Diagnosis_Generated_Code_Type.png"))
+
+        plt.clf()
+        plt.plot(x, self.proc_code_type_hist)
+        plt.xlabel("Generation Step")
+        plt.ylabel("Number of Code Types")
+        plt.title("Procedure Generated Code Type")
+        plt.savefig(os.path.join(self.plot_path, "Procedure_Generated_Code_Type.png"))
+
+        # 2) Code Number
+
+        plt.clf()
+        plt.plot(x, self.diag_code_num_hist)
+        plt.xlabel("Generation Step")
+        plt.ylabel("Total Codes Generated")
+        plt.title("Diagnosis Generated Code Number")
+        plt.savefig(os.path.join(self.plot_path, "Diagnosis_Generated_Code_Number.png"))
+
+        plt.clf()
+        plt.plot(x, self.proc_code_num_hist)
+        plt.xlabel("Generation Step")
+        plt.ylabel("Total Codes Generated")
+        plt.title("Procedure Generated Code Number")
+        plt.savefig(os.path.join(self.plot_path, "Procedure_Generated_Code_Number.png"))
+
+        # 3) Average Code per Visit
+
+        plt.clf()
+        plt.plot(x, self.diag_avg_code_num_hist)
+        plt.xlabel("Generation Step")
+        plt.ylabel("Avg Codes per Visit")
+        plt.title("Diagnosis Generated Average Code Number")
+        plt.savefig(os.path.join(self.plot_path, "Diagnosis_Generated_Average_Code_Number.png"))
+
+        plt.clf()
+        plt.plot(x, self.proc_avg_code_num_hist)
+        plt.xlabel("Generation Step")
+        plt.ylabel("Avg Codes per Visit")
+        plt.title("Procedure Generated Average Code Number")
+        plt.savefig(os.path.join(self.plot_path, "Procedure_Generated_Average_Code_Number.png"))
+
+
     def plot_dual_stream_losses(self):
         """Vẽ biểu đồ riêng cho diagnosis & procedure."""
         if len(self.train_d_real_diag) == 0:
@@ -160,6 +226,16 @@ class Logger:
         diag_n_types, diag_n_codes, diag_n_visits, diag_avg_code_num, diag_avg_visit_num = get_basic_statistics(fake_diagnoses, fake_lens)
         # Tính statistics cho procedure  
         proc_n_types, proc_n_codes, proc_n_visits, proc_avg_code_num, proc_avg_visit_num = get_basic_statistics(fake_procedures, fake_lens)
+
+        # LƯU LẠI THEO TỪNG LẦN GỌI stat_generation (CHO LINE PLOT)
+        self.diag_code_type_hist.append(diag_n_types)
+        self.proc_code_type_hist.append(proc_n_types)
+
+        self.diag_code_num_hist.append(diag_n_codes)
+        self.proc_code_num_hist.append(proc_n_codes)
+
+        self.diag_avg_code_num_hist.append(diag_avg_code_num)
+        self.proc_avg_code_num_hist.append(proc_avg_code_num)
         
         # HIỂN THỊ RIÊNG BIỆT
         log = ('Generating {} samples -- \n'
@@ -205,6 +281,7 @@ class Logger:
         total_avg_code_num = (diag_avg_code_num + proc_avg_code_num) / 2
         self.add_gen_point(total_types, total_codes, total_avg_code_num)
         self.plot_gen()
+        self.plot_gen_dual()
 
     def add_log(self, line):
         t = type(line)
